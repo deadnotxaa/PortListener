@@ -41,6 +41,8 @@ namespace port_listener {
         void startListening() override;
         void stopListening() override;
 
+
+        ~TCPListener() override {stopListening();};
     private:
         void startListeningThread() override;
 
@@ -57,6 +59,7 @@ namespace port_listener {
         void startListening() override;
         void stopListening() override;
 
+        ~COMListener() override {stopListening();};
     private:
         void startListeningThread() override;
 
