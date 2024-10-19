@@ -1,0 +1,7 @@
+# CLion
+.idea
+.DS_Store
+
+# CMake
+cmake-build-debug
+cmake-build-release
