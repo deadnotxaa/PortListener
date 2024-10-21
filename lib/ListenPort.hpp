@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/asio.hpp>
+
 #include <cinttypes>
 #include <string_view>
 #include <thread>
@@ -15,6 +17,7 @@ namespace port_listener {
         std::thread listening_thread_;
         uint64_t buffer_size_{1024};
         std::string_view odata_filename_{};
+        boost::asio::io_context io_context_;
 
         std::mutex mtx;
         std::condition_variable cv;
@@ -26,6 +29,8 @@ namespace port_listener {
 
         void virtual startListening() = 0;
         void virtual stopListening() = 0;
+
+        bool virtual sendCommand(const std::string_view&);
 
     private:
         void setOutputDataFilename(const std::string_view&);
@@ -41,6 +46,7 @@ namespace port_listener {
         void startListening() override;
         void stopListening() override;
 
+        bool sendCommand(const std::string_view&) override;
 
         ~TCPListener() override {stopListening();};
     private:
@@ -48,6 +54,9 @@ namespace port_listener {
 
         std::string_view endpoint_ip_{"127.0.0.1"};
         std::string_view endpoint_port_{};
+
+        boost::asio::ip::tcp::resolver resolver_;
+        boost::asio::ip::tcp::socket socket_;
     };
 
     // COM ports listener
@@ -58,6 +67,8 @@ namespace port_listener {
 
         void startListening() override;
         void stopListening() override;
+
+        bool sendCommand(const std::string_view&) override;
 
         ~COMListener() override {stopListening();};
     private:

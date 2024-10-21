@@ -1,7 +1,5 @@
 #include "ListenPort.hpp"
 
-#include <boost/asio.hpp>
-
 #include <iostream>
 #include <iomanip>
 #include <ctime>
@@ -48,7 +46,11 @@ TCPListener::TCPListener(
     const std::string_view& endpoint_ip,
     const std::string_view& endpoint_port
     )
-    : Listener(buffer_size, odata_filename), endpoint_ip_(endpoint_ip), endpoint_port_(endpoint_port)
+    : Listener(buffer_size, odata_filename),
+    endpoint_ip_(endpoint_ip),
+    endpoint_port_(endpoint_port),
+    resolver_(tcp::resolver(io_context_)),
+    socket_(tcp::socket(io_context_))
 {}
 
 void TCPListener::startListening() {
@@ -67,6 +69,19 @@ void TCPListener::stopListening() {
     }
 }
 
+bool TCPListener::sendCommand(const std::string_view& command) {
+    boost::system::error_code error;
+
+    const tcp::resolver::results_type endpoints = resolver_.resolve(endpoint_ip_, endpoint_port_);
+    [[maybe_unused]] auto connection = boost::asio::connect(socket_, endpoints);
+
+    // Write the command to the TCP port
+    boost::asio::write(socket, boost::asio::buffer(command));
+
+    return error.value();
+}
+
+
 void TCPListener::startListeningThread() {
     std::ofstream odata_file(odata_filename_, std::ios::binary | std::ios::out);
 
@@ -75,17 +90,11 @@ void TCPListener::startListeningThread() {
         return;
     }
 
-    boost::asio::io_context io_context;
-
     // Define a TCP endpoint with the local host and the port
-    tcp::resolver resolver(io_context);
-    const tcp::resolver::results_type endpoints = resolver.resolve(endpoint_ip_, endpoint_port_); // Change port number accordingly
-
-    // Create a socket
-    tcp::socket socket(io_context);
+    const tcp::resolver::results_type endpoints = resolver_.resolve(endpoint_ip_, endpoint_port_); // Change port number accordingly
 
     // Connect to the endpoint
-    [[maybe_unused]] auto tcp = boost::asio::connect(socket, endpoints);
+    [[maybe_unused]] auto tcp = boost::asio::connect(socket_, endpoints);
 
     // Buffer to hold incoming data
     char buffer[buffer_size_];
@@ -93,7 +102,7 @@ void TCPListener::startListeningThread() {
     // Keep reading data from the socket
     while (true) {
         boost::system::error_code error;
-        size_t len = socket.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
+        const std::size_t len = socket_.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
 
         if (error == boost::asio::error::eof) {
             // Connection closed cleanly by peer
@@ -144,6 +153,23 @@ void COMListener::stopListening() {
     }
 }
 
+bool COMListener::sendCommand(const std::string_view& command) {
+    boost::system::error_code error;
+    boost::asio::serial_port serial(io_context_, endpoint_com_.data());
+
+    // Set serial port options (adjust based on your device's requirements)
+    serial.set_option(boost::asio::serial_port_base::baud_rate(9600));
+    serial.set_option(boost::asio::serial_port_base::character_size(8));
+    serial.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+    serial.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+    serial.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+    // Write the command to the serial port
+    boost::asio::write(serial, boost::asio::buffer(command));
+
+    return error.value();
+}
+
 void COMListener::startListeningThread() {
     std::ofstream odata_file(odata_filename_, std::ios::binary | std::ios::out);
 
@@ -152,10 +178,8 @@ void COMListener::startListeningThread() {
         return;
     }
 
-    boost::asio::io_context io_context;
-
     // Create a serial port object
-    boost::asio::serial_port serial(io_context, endpoint_com_.data());
+    boost::asio::serial_port serial(io_context_, endpoint_com_.data());
 
     // Set serial port parameters (baud rate, character size, parity, stop bits, etc.)
     serial.set_option(boost::asio::serial_port_base::baud_rate(9600));  // You can adjust baud rate here
@@ -170,7 +194,7 @@ void COMListener::startListeningThread() {
     // Keep reading data from the serial port
     while (true) {
         boost::system::error_code error;
-        const size_t len = serial.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
+        const std::size_t len = serial.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
 
         if (error == boost::asio::error::eof) {
             // Serial connection closed cleanly by peer
