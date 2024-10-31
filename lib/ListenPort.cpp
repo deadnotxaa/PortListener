@@ -76,7 +76,7 @@ bool TCPListener::sendCommand(const std::string_view& command) {
     [[maybe_unused]] auto connection = boost::asio::connect(socket_, endpoints);
 
     // Write the command to the TCP port
-    boost::asio::write(socket, boost::asio::buffer(command));
+    boost::asio::write(socket_, boost::asio::buffer(command));
 
     return error.value();
 }
@@ -91,7 +91,7 @@ void TCPListener::startListeningThread() {
     }
 
     // Define a TCP endpoint with the local host and the port
-    const tcp::resolver::results_type endpoints = resolver_.resolve(endpoint_ip_, endpoint_port_); // Change port number accordingly
+    const tcp::resolver::results_type endpoints = resolver_.resolve(endpoint_ip_, endpoint_port_);
 
     // Connect to the endpoint
     [[maybe_unused]] auto tcp = boost::asio::connect(socket_, endpoints);
