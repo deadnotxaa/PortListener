@@ -19,7 +19,7 @@ Listener::Listener(const uint64_t buffer_size, const std::string_view& odata_fil
 }
 
 void Listener::setOutputDataFilename(const std::string_view& filename) {
-    if (!filename.empty() && !std::filesystem::exists(filename)) {
+    if (!filename.empty() && !std::filesystem::exists(filename.data())) {
         odata_filename_ = filename;
         return;
     }
@@ -83,7 +83,7 @@ bool TCPListener::sendCommand(const std::string_view& command) {
 
 
 void TCPListener::startListeningThread() {
-    std::ofstream odata_file(odata_filename_, std::ios::binary | std::ios::out);
+    std::ofstream odata_file(odata_filename_.data(), std::ios::binary | std::ios::out);
 
     if (!odata_file.is_open()) {
         std::cerr << "Failed to open output file." << std::endl;
@@ -134,8 +134,15 @@ COMListener::COMListener(
     const std::string_view& odata_filename,
     const std::string_view& endpoint_com
     )
-    : Listener(buffer_size, odata_filename), endpoint_com_(endpoint_com)
-{}
+    : Listener(buffer_size, odata_filename), endpoint_com_(endpoint_com), serial_(boost::asio::serial_port(io_context_, endpoint_com_.data()))
+{
+    // Set serial port options (adjust based on your device's requirements)
+    serial_.set_option(boost::asio::serial_port_base::baud_rate(9600));
+    serial_.set_option(boost::asio::serial_port_base::character_size(8));
+    serial_.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+    serial_.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+    serial_.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+}
 
 void COMListener::startListening() {
     listening_thread_ = std::thread(&COMListener::startListeningThread, this);
@@ -155,38 +162,20 @@ void COMListener::stopListening() {
 
 bool COMListener::sendCommand(const std::string_view& command) {
     boost::system::error_code error;
-    boost::asio::serial_port serial(io_context_, endpoint_com_.data());
-
-    // Set serial port options (adjust based on your device's requirements)
-    serial.set_option(boost::asio::serial_port_base::baud_rate(9600));
-    serial.set_option(boost::asio::serial_port_base::character_size(8));
-    serial.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-    serial.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-    serial.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
     // Write the command to the serial port
-    boost::asio::write(serial, boost::asio::buffer(command));
+    boost::asio::write(serial_, boost::asio::buffer(command));
 
     return error.value();
 }
 
 void COMListener::startListeningThread() {
-    std::ofstream odata_file(odata_filename_, std::ios::binary | std::ios::out);
+    std::ofstream odata_file(odata_filename_.data(), std::ios::binary | std::ios::out);
 
     if (!odata_file.is_open()) {
         std::cerr << "Failed to open output file." << std::endl;
         return;
     }
-
-    // Create a serial port object
-    boost::asio::serial_port serial(io_context_, endpoint_com_.data());
-
-    // Set serial port parameters (baud rate, character size, parity, stop bits, etc.)
-    serial.set_option(boost::asio::serial_port_base::baud_rate(9600));  // You can adjust baud rate here
-    serial.set_option(boost::asio::serial_port_base::character_size(8));
-    serial.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-    serial.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-    serial.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
     // Buffer to hold incoming data
     char buffer[buffer_size_];
@@ -194,7 +183,7 @@ void COMListener::startListeningThread() {
     // Keep reading data from the serial port
     while (true) {
         boost::system::error_code error;
-        const std::size_t len = serial.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
+        const std::size_t len = serial_.read_some(boost::asio::buffer(buffer, sizeof(buffer)), error);
 
         if (error == boost::asio::error::eof) {
             // Serial connection closed cleanly by peer
