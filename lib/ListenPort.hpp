@@ -30,7 +30,7 @@ namespace port_listener {
         void virtual startListening() = 0;
         void virtual stopListening() = 0;
 
-        bool virtual sendCommand(const std::string_view&);
+        bool virtual sendCommand(const std::string_view&) = 0;
 
     private:
         void setOutputDataFilename(const std::string_view&);
