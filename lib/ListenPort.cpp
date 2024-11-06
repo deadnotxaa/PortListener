@@ -22,7 +22,7 @@ void Listener::setOutputDataFilename(const std::string_view& filename) {
     }
 
     // TODO: Add overwrite support with copying old versions to specific folder
-    logger_.log(LogLevel::WARNING, "File name not specified\n"
+    logger_.log(LogLevel::kLogWarning, "File name not specified\n"
                  "File with unique name will be created instead");
 
     // Creating file with unique name
@@ -83,7 +83,7 @@ void TCPListener::startListeningThread() {
     std::ofstream odata_file(odata_filename_.data(), std::ios::binary | std::ios::out);
 
     if (!odata_file.is_open()) {
-        logger_.log(LogLevel::ERROR, "Failed to open output file.");
+        logger_.log(LogLevel::kLogError, "Failed to open output file.");
         return;
     }
 
@@ -103,7 +103,7 @@ void TCPListener::startListeningThread() {
 
         if (error == boost::asio::error::eof) {
             // Connection closed cleanly by peer
-            logger_.log(LogLevel::ERROR, "Connection closed by peer");
+            logger_.log(LogLevel::kLogError, "Connection closed by peer");
             break;
         }
 
@@ -140,17 +140,17 @@ COMListener::COMListener(
     serial_.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
     serial_.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
-    logger_.log(LogLevel::INFO, "[COM] port listener class instance configured");
-    logger_.log(LogLevel::INFO, "[PARAMS] baud_rate = 115200;\tcharacter_size=8\tparity::none;\tstop_bits::one;\tflow_control::none");
+    logger_.log(LogLevel::kLogInfo, "[COM] port listener class instance configured");
+    logger_.log(LogLevel::kLogInfo, "[PARAMS] baud_rate = 115200;\tcharacter_size=8\tparity::none;\tstop_bits::one;\tflow_control::none");
 }
 
 void COMListener::startListening() {
-    logger_.log(LogLevel::INFO, "[COM] port Listening thread started");
+    logger_.log(LogLevel::kLogInfo, "[COM] port Listening thread started");
     listening_thread_ = std::thread(&COMListener::startListeningThread, this);
 }
 
 void COMListener::stopListening() {
-    logger_.log(LogLevel::INFO, "[COM] port stop listening initiated");
+    logger_.log(LogLevel::kLogInfo, "[COM] port stop listening initiated");
     {
         std::lock_guard lock(mtx);
         is_listening_done = true;
@@ -159,7 +159,7 @@ void COMListener::stopListening() {
 
     if (listening_thread_.joinable()) {
         listening_thread_.join();
-        logger_.log(LogLevel::INFO, "[COM] port listening thread joined");
+        logger_.log(LogLevel::kLogInfo, "[COM] port listening thread joined");
     }
 }
 
@@ -169,10 +169,10 @@ bool COMListener::sendCommand(const std::string_view& command) {
     // Write the command to the serial port
     boost::asio::write(serial_, boost::asio::buffer(command), error);
     if (error) {
-        logger_.log(LogLevel::ERROR, "Failed to send command: " + error.message());
+        logger_.log(LogLevel::kLogError, "Failed to send command: " + error.message());
         return error.value();
     }
-    logger_.log(LogLevel::INFO, "[COM] command send successfully");
+    logger_.log(LogLevel::kLogInfo, "[COM] command send successfully");
 
     return error.value();
 }
@@ -181,14 +181,14 @@ void COMListener::startListeningThread() {
     std::ofstream odata_file(odata_filename_.data(),  std::ios::out);
 
     if (!odata_file.is_open()) {
-        logger_.log(LogLevel::ERROR, "Failed to open output file.");
+        logger_.log(LogLevel::kLogError, "Failed to open output file.");
         return;
     }
 
     // Buffer to hold incoming data
     char buffer[buffer_size_];
 
-    logger_.log(LogLevel::INFO, "[COM] reading data from the serial port");
+    logger_.log(LogLevel::kLogInfo, "[COM] reading data from the serial port");
     // Keep reading data from the serial port
     while (true) {
         boost::system::error_code error;
@@ -196,7 +196,7 @@ void COMListener::startListeningThread() {
 
         if (error == boost::asio::error::eof) {
             // Serial connection closed cleanly by peer
-            logger_.log(LogLevel::ERROR, "Connection closed by peer");
+            logger_.log(LogLevel::kLogError, "Connection closed by peer");
             break;
         }
 
@@ -211,7 +211,7 @@ void COMListener::startListeningThread() {
 
         // Write data to file
         odata_file.write(buffer, static_cast<std::streamsize>(len));
-        logger_.log(LogLevel::INFO, "[COM] data wrote to output file successfully");
+        logger_.log(LogLevel::kLogInfo, "[COM] data wrote to output file successfully");
 
         // Check if join requested
         {

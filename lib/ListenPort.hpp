@@ -11,12 +11,12 @@
 
 namespace port_listener {
 
-    enum class LogLevel {
-        DEBUG = 0,
-        INFO = 1,
-        WARNING = 2,
-        ERROR = 3,
-        CRITICAL = 4,
+    enum LogLevel {
+        kLogDebug,
+        kLogInfo,
+        kLogWarning,
+        kLogError,
+        kLogCritical,
     };
 
     class Logger {
@@ -71,15 +71,15 @@ namespace port_listener {
         static std::string_view levelToString(const LogLevel level)
         {
             switch (level) {
-                case LogLevel::DEBUG:
+                case LogLevel::kLogDebug:
                     return "DEBUG";
-                case LogLevel::INFO:
+                case LogLevel::kLogInfo:
                     return "INFO";
-                case LogLevel::WARNING:
+                case LogLevel::kLogWarning:
                     return "WARNING";
-                case LogLevel::ERROR:
+                case LogLevel::kLogError:
                     return "ERROR";
-                case LogLevel::CRITICAL:
+                case LogLevel::kLogCritical:
                     return "CRITICAL";
                 default:
                     return "UNKNOWN";
