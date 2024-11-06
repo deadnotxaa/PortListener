@@ -1,11 +1,8 @@
 #include "ListenPort.hpp"
 
-#include <iostream>
 #include <iomanip>
 #include <ctime>
 #include <sstream>
-#include <filesystem>
-#include <fstream>
 
 using boost::asio::ip::tcp;
 using namespace port_listener;
@@ -19,14 +16,14 @@ Listener::Listener(const uint64_t buffer_size, const std::string_view& odata_fil
 }
 
 void Listener::setOutputDataFilename(const std::string_view& filename) {
-    if (!filename.empty() && !std::filesystem::exists(filename.data())) {
+    if (!filename.empty() /*&& !std::filesystem::exists(filename.data())*/) {
         odata_filename_ = filename;
         return;
     }
 
     // TODO: Add overwrite support with copying old versions to specific folder
-    std::cerr << "File name not specified or file with such name already exists.\n"
-                 "File with unique name will be created instead" << std::endl;
+    logger_.log(LogLevel::WARNING, "File name not specified\n"
+                 "File with unique name will be created instead");
 
     // Creating file with unique name
     const auto t = std::time(nullptr);
@@ -34,7 +31,7 @@ void Listener::setOutputDataFilename(const std::string_view& filename) {
 
     std::ostringstream oss;
     oss << std::put_time(&tm, "data_%d%m%Y_%H%M%S"); // TODO: Add custom file name formatting
-    const auto str = oss.str();
+    const auto str = oss.str() + ".txt";
 
     odata_filename_ = str;
 }
@@ -86,7 +83,7 @@ void TCPListener::startListeningThread() {
     std::ofstream odata_file(odata_filename_.data(), std::ios::binary | std::ios::out);
 
     if (!odata_file.is_open()) {
-        std::cerr << "Failed to open output file." << std::endl;
+        logger_.log(LogLevel::ERROR, "Failed to open output file.");
         return;
     }
 
@@ -106,7 +103,7 @@ void TCPListener::startListeningThread() {
 
         if (error == boost::asio::error::eof) {
             // Connection closed cleanly by peer
-            std::cerr << "Connection closed by peer" << std::endl;
+            logger_.log(LogLevel::ERROR, "Connection closed by peer");
             break;
         }
 
@@ -134,21 +131,26 @@ COMListener::COMListener(
     const std::string_view& odata_filename,
     const std::string_view& endpoint_com
     )
-    : Listener(buffer_size, odata_filename), endpoint_com_(endpoint_com), serial_(boost::asio::serial_port(io_context_, endpoint_com_.data()))
+    : Listener(buffer_size, odata_filename), endpoint_com_(endpoint_com), serial_(boost::asio::serial_port(io_service_, endpoint_com_.data()))
 {
     // Set serial port options (adjust based on your device's requirements)
-    serial_.set_option(boost::asio::serial_port_base::baud_rate(9600));
+    serial_.set_option(boost::asio::serial_port_base::baud_rate(115200));
     serial_.set_option(boost::asio::serial_port_base::character_size(8));
     serial_.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
     serial_.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
     serial_.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+    logger_.log(LogLevel::INFO, "[COM] port listener class instance configured");
+    logger_.log(LogLevel::INFO, "[PARAMS] baud_rate = 115200;\tcharacter_size=8\tparity::none;\tstop_bits::one;\tflow_control::none");
 }
 
 void COMListener::startListening() {
+    logger_.log(LogLevel::INFO, "[COM] port Listening thread started");
     listening_thread_ = std::thread(&COMListener::startListeningThread, this);
 }
 
 void COMListener::stopListening() {
+    logger_.log(LogLevel::INFO, "[COM] port stop listening initiated");
     {
         std::lock_guard lock(mtx);
         is_listening_done = true;
@@ -157,6 +159,7 @@ void COMListener::stopListening() {
 
     if (listening_thread_.joinable()) {
         listening_thread_.join();
+        logger_.log(LogLevel::INFO, "[COM] port listening thread joined");
     }
 }
 
@@ -164,22 +167,28 @@ bool COMListener::sendCommand(const std::string_view& command) {
     boost::system::error_code error;
 
     // Write the command to the serial port
-    boost::asio::write(serial_, boost::asio::buffer(command));
+    boost::asio::write(serial_, boost::asio::buffer(command), error);
+    if (error) {
+        logger_.log(LogLevel::ERROR, "Failed to send command: " + error.message());
+        return error.value();
+    }
+    logger_.log(LogLevel::INFO, "[COM] command send successfully");
 
     return error.value();
 }
 
 void COMListener::startListeningThread() {
-    std::ofstream odata_file(odata_filename_.data(), std::ios::binary | std::ios::out);
+    std::ofstream odata_file(odata_filename_.data(),  std::ios::out);
 
     if (!odata_file.is_open()) {
-        std::cerr << "Failed to open output file." << std::endl;
+        logger_.log(LogLevel::ERROR, "Failed to open output file.");
         return;
     }
 
     // Buffer to hold incoming data
     char buffer[buffer_size_];
 
+    logger_.log(LogLevel::INFO, "[COM] reading data from the serial port");
     // Keep reading data from the serial port
     while (true) {
         boost::system::error_code error;
@@ -187,7 +196,7 @@ void COMListener::startListeningThread() {
 
         if (error == boost::asio::error::eof) {
             // Serial connection closed cleanly by peer
-            std::cerr << "Connection closed by peer" << std::endl;
+            logger_.log(LogLevel::ERROR, "Connection closed by peer");
             break;
         }
 
@@ -196,8 +205,13 @@ void COMListener::startListeningThread() {
             throw boost::system::system_error(error);
         }
 
+        // Print the response
+        std::cout.write(buffer, static_cast<std::streamsize>(len));
+        std::cout.flush();
+
         // Write data to file
         odata_file.write(buffer, static_cast<std::streamsize>(len));
+        logger_.log(LogLevel::INFO, "[COM] data wrote to output file successfully");
 
         // Check if join requested
         {
