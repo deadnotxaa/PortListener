@@ -23,7 +23,7 @@ namespace port_listener {
     public:
         // Constructor: Opens the log file in append mode
         explicit Logger (const std::string_view& filename) {
-            logFile.open(filename, std::ios::app);
+            logFile.open(filename.data(), std::ios::app);
 
             if (!logFile.is_open()) {
                 std::cerr << "Error opening log file." << std::endl;
@@ -99,7 +99,7 @@ namespace port_listener {
 
         std::mutex mtx;
         std::condition_variable cv;
-        bool is_listening_done{false};
+        //bool is_listening_done{false};
 
         Logger logger_{"logs.txt"};
     public:
@@ -109,7 +109,7 @@ namespace port_listener {
         void virtual startListening() = 0;
         void virtual stopListening() = 0;
 
-        bool virtual sendCommand(const std::string_view&) = 0;
+        void virtual sendCommand(const std::string_view&) = 0;
 
     private:
         void setOutputDataFilename(const std::string_view&);
@@ -125,7 +125,7 @@ namespace port_listener {
         void startListening() override;
         void stopListening() override;
 
-        bool sendCommand(const std::string_view&) override;
+        void sendCommand(const std::string_view&) override;
 
         ~TCPListener() override {stopListening();};
     private:
@@ -148,7 +148,7 @@ namespace port_listener {
         void startListening() override;
         void stopListening() override;
 
-        bool sendCommand(const std::string_view&) override;
+        void sendCommand(const std::string_view&) override;
 
         ~COMListener() override {stopListening();};
     private:
