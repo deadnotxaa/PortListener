@@ -19,7 +19,7 @@ deploy-windows:
   dependencies:
     - build-windows
   script:
-    - mkdir -p LasObserver
+    - mkdir -p PortKnocker
     - cp cmake-build-release/bin/PortKnocker.exe ./PortKnocker/PortKnocker.exe
   cache:
     key: build-cache-windows
