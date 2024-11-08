@@ -7,16 +7,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES arm64)
 elseif (WIN32)
-#    TODO: add boost root for win32
-#    set(BOOST_ROOT /usr/include/boost)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++fs -lwsock32")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++ -lstdc++fs -lwsock32 -lws2_32")
     set(CMAKE_OSX_ARCHITECTURES x86_64)
 endif ()
 
 # Boost library | Boost.Asio
-set(Boost_USE_STATIC_LIBS ON)
+set (Boost_NO_SYSTEM_PATHS ON)
+set (Boost_USE_MULTITHREADED ON)
+set (Boost_USE_STATIC_LIBS ON)
+set (Boost_USE_STATIC_RUNTIME ON)
+set (BOOST_ALL_DYN_LINK OFF)
 
-find_package(Boost)
+find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
 add_subdirectory(bin)

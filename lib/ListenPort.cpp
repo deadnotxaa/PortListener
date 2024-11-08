@@ -8,11 +8,6 @@ using boost::asio::ip::tcp;
 using namespace port_listener;
 
 
-std::mutex file_mutex;
-std::mutex console_mutex;  // Separate mutex for console output
-std::atomic<bool> is_listening_done(false);
-
-
 Listener::Listener(const uint64_t buffer_size, const std::string_view& odata_filename)
             : buffer_size_(buffer_size)
 {
@@ -71,14 +66,16 @@ void TCPListener::stopListening() {
     }
 }
 
-void TCPListener::sendCommand(const std::string_view& command) {
+bool TCPListener::sendCommand(const std::string_view& command) {
     boost::system::error_code error;
 
     const tcp::resolver::results_type endpoints = resolver_.resolve(endpoint_ip_, endpoint_port_);
     [[maybe_unused]] auto connection = boost::asio::connect(socket_, endpoints);
 
     // Write the command to the TCP port
-    boost::asio::write(socket_, boost::asio::buffer(command), error);
+    boost::asio::write(socket_, boost::asio::buffer(command));
+
+    return error.value();
 }
 
 
@@ -144,7 +141,7 @@ COMListener::COMListener(
     serial_.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
     logger_.log(LogLevel::kLogInfo, "[COM] port listener class instance configured");
-    logger_.log(LogLevel::kLogInfo, "[PARAMS] baud_rate = 115200;\ncharacter_size=8\nparity::none;\nstop_bits::one;\nflow_control::none");
+    logger_.log(LogLevel::kLogInfo, "[PARAMS] baud_rate = 115200; character_size=8; parity::none; stop_bits::one; flow_control::none");
 }
 
 void COMListener::startListening() {
@@ -154,20 +151,30 @@ void COMListener::startListening() {
 
 void COMListener::stopListening() {
     logger_.log(LogLevel::kLogInfo, "[COM] port stop listening initiated");
+    {
+        std::lock_guard lock(mtx);
+        is_listening_done = true;
+    }
+    cv.notify_one();
 
-	is_listening_done = true;
     if (listening_thread_.joinable()) {
         listening_thread_.join();
-      logger_.log(LogLevel::kLogInfo, "[COM] port listening thread joined");
+        logger_.log(LogLevel::kLogInfo, "[COM] port listening thread joined");
     }
 }
 
-void COMListener::sendCommand(const std::string_view& command) {
+bool COMListener::sendCommand(const std::string_view& command) {
     boost::system::error_code error;
 
     // Write the command to the serial port
     boost::asio::write(serial_, boost::asio::buffer(command), error);
+    // if (error) {
+    //     logger_.log(LogLevel::kLogError, "Failed to send command: " + error.message());
+    //     return error.value();
+    // }
     logger_.log(LogLevel::kLogInfo, "[COM] command send successfully");
+
+    return error.value();
 }
 
 void COMListener::startListeningThread() {
@@ -198,18 +205,13 @@ void COMListener::startListeningThread() {
             throw boost::system::system_error(error);
         }
 
-      	{
-            std::lock_guard lock(file_mutex);
-            odata_file.write(buffer, static_cast<std::streamsize>(len));
-            odata_file.flush();
-        logger_.log(LogLevel::kLogInfo, "[COM] data wrote to output file successfully");
-        }
+        // Print the response
+        std::cout.write(buffer, static_cast<std::streamsize>(len));
+        std::cout.flush();
 
-        {
-            std::lock_guard lock(console_mutex);
-            std::cout.write(buffer, static_cast<std::streamsize>(len));
-            std::cout.flush();
-        }
+        // Write data to file
+        odata_file.write(buffer, static_cast<std::streamsize>(len));
+        logger_.log(LogLevel::kLogInfo, "[COM] data wrote to output file successfully");
 
         // Check if join requested
         {
