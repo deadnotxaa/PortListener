@@ -5,7 +5,7 @@ stages:
 build-windows:
   stage: build-exec
   script:
-    - cmake -S . -B cmake-build-release -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=C:/Users/Administrator/gcc/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/Users/Administrator/gcc/bin/g++.exe DBoost_ROOT="C:/boost_1_86_0"
+    - cmake -S . -B cmake-build-release -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=C:/Users/Administrator/gcc/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/Users/Administrator/gcc/bin/g++.exe -DBoost_ROOT="C:/boost_1_86_0"
     - cmake --build cmake-build-release --target PortKnocker
   cache:
     key: build-cache-windows
@@ -32,3 +32,4 @@ deploy-windows:
       - PortKnocker/PortKnocker.exe
   tags:
     - windows-7
+  when: manual
