@@ -1,0 +1,35 @@
+stages:
+  - build-exec
+  - deploy
+
+build-windows:
+  stage: build-exec
+  script:
+    - cmake -S . -B cmake-build-release -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=C:/Users/Administrator/gcc/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/Users/Administrator/gcc/bin/g++.exe -DBoost_ROOT="C:/boost_1_86_0"
+    - cmake --build cmake-build-release --target PortKnocker
+  cache:
+    key: build-cache-windows
+    paths:
+      - cmake-build-release/bin/PortKnocker.exe
+  tags:
+    - windows-7
+
+deploy-windows:
+  stage: deploy
+  dependencies:
+    - build-windows
+  script:
+    - mkdir -p PortKnocker
+    - cp cmake-build-release/bin/PortKnocker.exe ./PortKnocker/PortKnocker.exe
+    - cp -r .config ./PortKnocker/.config
+  cache:
+    key: build-cache-windows
+    paths:
+      - cmake-build-release/bin/PortKnocker.exe
+  artifacts:
+    name: "PortKnocker-win7_amd64_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}"
+    paths:
+      - PortKnocker
+  tags:
+    - windows-7
+  when: manual
