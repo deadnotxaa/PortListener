@@ -4,6 +4,11 @@ project(PortKnocker)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+
+option(BUILD_SHARED_LIBS "Build without shared libraries" OFF)
+
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES arm64)
 elseif (WIN32)
