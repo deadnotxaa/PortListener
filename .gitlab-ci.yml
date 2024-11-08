@@ -21,6 +21,7 @@ deploy-windows:
   script:
     - mkdir -p PortKnocker
     - cp cmake-build-release/bin/PortKnocker.exe ./PortKnocker/PortKnocker.exe
+    - cp -r .config ./PortKnocker/.config
   cache:
     key: build-cache-windows
     paths:
@@ -28,7 +29,7 @@ deploy-windows:
   artifacts:
     name: "PortKnocker-win7_amd64_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}"
     paths:
-      - PortKnocker/PortKnocker.exe
+      - PortKnocker
   tags:
     - windows-7
   when: manual
