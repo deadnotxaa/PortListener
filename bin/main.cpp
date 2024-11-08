@@ -4,17 +4,18 @@
 #include <thread>
 
 int main(int argc, char** argv) {
-    auto restart_listener = port_listener::COMListener(1024, "test1.txt", "COM3");
+    if (strcmp(argv[1], "reset") == 0) {
+        auto restart_listener = port_listener::COMListener(1024, "test1.txt", "COM3");
+        restart_listener.sendCommand("FRESET STANDARD\r\n");
 
-    restart_listener.sendCommand("FRESET STANDARD\r\n");
-    std::this_thread::sleep_for(std::chrono::milliseconds(10'000));
-    
+        std::this_thread::sleep_for(std::chrono::milliseconds(10'000));
+    }
                                                           
 	auto listener = port_listener::COMListener(1024, "test1.txt", "COM3");
     listener.sendCommand("LOG TIMEA ONTIME 0.2\r\n");
-
     listener.startListening();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10'000));
     listener.stopListening();
 
     return 0;
