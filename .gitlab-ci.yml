@@ -24,8 +24,7 @@ deploy-windows:
   cache:
     key: build-cache-windows
     paths:
-      - cmake-build-release/bin/LasObserverReader.exe
-      - cmake-build-release/bin/LasObserverAnalyzer.exe
+      - cmake-build-release/bin/PortKnocker.exe
   artifacts:
     name: "PortKnocker-win7_amd64_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}"
     paths:
